@@ -1,0 +1,19 @@
+{
+  "author": "Stephen Sugden <stephen@betsmartmedia.com>",
+  "name": "eel",
+  "description": "eel is EventEmitter logging. It's simple, extensible, and convenient.",
+  "version": "0.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/BetSmartMedia/node-emitter-logger.git"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {},
+	"scripts": {
+		"test": "node test.js"
+	},
+  "engines": {
+    "node": "*"
+  }
+}
