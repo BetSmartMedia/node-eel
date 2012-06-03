@@ -1,4 +1,4 @@
-# eel - EventEmitter Logging
+# eel - EventEmitter Logging [![Build Status](https://secure.travis-ci.org/BetSmartMedia/node-eel.png?branch=master)](http://travis-ci.org/BetSmartMedia/node-eel)
 
 eel is a logging "framework" that hopes to embody a few simple principles:
 
