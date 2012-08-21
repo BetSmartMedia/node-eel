@@ -5,7 +5,7 @@
   "version": "0.0.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/BetSmartMedia/node-emitter-logger.git"
+    "url": "git://github.com/BetSmartMedia/node-eel.git"
   },
   "dependencies": {},
   "devDependencies": {},
