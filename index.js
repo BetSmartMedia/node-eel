@@ -1,13 +1,13 @@
-EventEmitter = require('events').EventEmitter
-emitter = new EventEmitter
+var EventEmitter = require('events').EventEmitter
+var emitter = new EventEmitter
 
-module.exports = log = function (type, data) {
+module.exports = log
+
+function log (type, data) {
 	log.info(type, data)
-}
+};
 
-levels = ['debug', 'info', 'warning', 'error', 'critical']
-
-levels.forEach(function(level){
+['debug', 'info', 'warning', 'error', 'critical'].forEach(function(level){
 	log[level] = function(type, data) {
 		log.write(level, type, data)
 	}
@@ -17,18 +17,16 @@ log.dateFormatter = function (d) { return d.toISOString() }
 
 log.write = function (level, type, data) {
 	data || (data = {})
-	entry = {
+	var entry = {
 		type: type,
 		level: level,
 		timestamp: log.dateFormatter(new Date)
 	}
 
-	for (var k in data) {
-		entry[k] = data[k]
-	}
+	for (var k in data) entry[k] = data[k]
 
 	log.emit('entry', entry)
-	if (level == 'error') log.emit('error_', entry)
+	if (level === 'error') log.emit('error_', entry)
   else log.emit(level, entry)
 }
 
