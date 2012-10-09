@@ -1,4 +1,5 @@
-log = require('./')
+var log = require('./')
+require('tap').test('Basic features', function ())
 assert = require('assert')
 p = console.log
 
@@ -15,7 +16,6 @@ setTimeout(function(){
 		p('ok - .info is called by default')
 	} else {
 		p('not ok - .info was not called')
-		pass = false
 	}
 
 	log.on('info', function(entry){

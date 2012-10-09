@@ -10,13 +10,14 @@ It accomplishes these goals by decoupling the logging of events from the writing
 of logs in the simplest way possible: using an
 [EventEmitter][EventEmitter]
 
+
 ## Easy
 
 The `eel` module exports a function that logs at the "info" level:
 
     log = require('eel')
     version = require('./package.json').version
-    log("startup", {version: version})
+    log("Started up", {version: version, port: port})
 
 To log at another level, use the `log[level]` functions:
 
@@ -27,37 +28,75 @@ To log at another level, use the `log[level]` functions:
 
 The default levels are debug, info, warning, error, and critical.
 
+
 ## Structured Data
 
-The first argument to any logging function is the event type. While this
-can be any type of object, it's convention to use dot-separated names. The
-second (optional) argument is an object. This object will have the log level,
-the event type, and a timestamp assigned to it before it is *emitted*. Which
-brings us to principle number 3...
+Eel uses the [logstash JSON event format][ls_format] internally. Every logging
+method takes a `@message` as the first parameter, and an object representing
+the `@fields` part of a event as the second. Either parameter can be omitted,
+and if you include any of the `@` prefixed "metadata" fields in the field data
+object they will override the defaults.
+
+Confused? Hopefully these examples will clarify:
+
+    log('Something happened', {count: 10})
+    /*
+    { '@message': 'Something happened',
+      '@tags': [],
+      '@fields': { level: 'info', count: 10 },
+      '@timestamp': '2012-12-16T05:44:48.125Z' }
+    */
+
+    log.warn('Something happened', {count: 10, '@tags': ['bad']})
+    /*
+    { '@message': 'Something happened',
+      '@tags': ['bad'],
+      '@fields': { level: 'warn', count: 10 },
+      '@timestamp': '2012-12-16T05:44:48.125Z' }
+    */
+
+    log.error('Something happened', {'@message': 'Overridden!'})
+    /*
+    { '@message': 'Overridden!',
+      '@tags': [],
+      '@fields': { level: 'error' },
+      '@timestamp': '2012-12-16T05:44:48.125Z' }
+    */
+
+Be careful, Eel doesn't go out of it's way to prevent you from generating
+garbage log entries!
+
 
 ## Flexible
 
 In addition to the various logging methods, the `eel` object also acts like an
-[EventEmitter][EventEmitter] methods to an internal EventEmitter. In
-fact, none of the above examples produce any output, because nothing is
-listening to the events being emitted. To rectify this we can attach the
-simplest possible logging backend to the 'entry' event:
+[EventEmitter][EventEmitter]. In fact, none of the above examples produce any
+output, because nothing is listening to the events being emitted. To rectify
+this we can attach the simplest possible logging backend to the 'entry' event:
 
-    log.on('entry', console.log)
+    log.on('info', console.log).on('error', console.error)
 
 Now our prepared log entry objects will be printed to the console:
 
-    log('blah', {relephant: 'data'})
-    /* prints
-    { type: 'blah',
-      level: 'info',
-      relephant: 'data',
-      timestamp: '2012-05-31T23:49:01.523Z' }
+    log('Something happened', {relephant: 'data'})
+    /* Actually prints this to the console:
+    { '@message': 'Something happened',
+      '@fields': { level: 'info', relephant: 'data' },
+      '@timestamp': '2012-05-31T23:49:01.523Z' }
+    */
 
 ## Logging backends
 
-For more fancy logging setups the following logging backends are available. If you
-write your own let me know or send me a pull request to add it to the list:
+
+To configure a backend use `log.backends.configure` with a URI describing the
+backend and it's options. Logging to a file:
+
+    log.backends.configure('file:///var/log/my_program.log?rotateSize=')
+
+* [File backend](https://github.com/BetSmartMedia/node-eel/blob/master/backends/file.md)
+* [TCP backend](https://github.com/BetSmartMedia/node-eel/blob/master/backends/tcp.md)
+
+you write your own let me know or send me a pull request to add it to the list:
 
 * [eel-stream](http://github.com/BetSmartMedia/node-eel-stream) - Write logs to a
   stream (file, tcp socket, whatever) using a formatter function.
@@ -69,3 +108,4 @@ write your own let me know or send me a pull request to add it to the list:
 Investigate using EventEmitter2 for namespacing and pattern matching log events.
 
 [EventEmitter]: (http://nodejs.org/api/events.html#events_class_events_eventemitter)
+[ls_format]: (https://github.com/logstash/logstash/wiki/logstash%27s-internal-message-format)

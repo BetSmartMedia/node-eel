@@ -1,11 +1,16 @@
-var EventEmitter = require('events').EventEmitter
-var emitter = new EventEmitter
-
-module.exports = log
+var safeJSON = require('./formatter').safeJSON
 
 function log (type, data) {
 	log.info(type, data)
-};
+}
+
+log.backends   = require('./backends')
+log.formatter  = require('./formatter')
+module.exports = log
+
+var EventEmitter = require('events').EventEmitter
+	, emitter = new EventEmitter
+	;
 
 ['debug', 'info', 'warning', 'error', 'critical'].forEach(function(level){
 	log[level] = function(type, data) {
@@ -13,42 +18,49 @@ function log (type, data) {
 	}
 })
 
-log.dateFormatter = function (d) { return d.toISOString() }
-
-log.write = function (level, type, data) {
-	data || (data = {})
-	var entry = {
-		type: type,
-		level: level,
-		timestamp: log.dateFormatter(new Date)
+log.write = function (level, message, field_data) {
+	if (typeof message == 'object') {
+		if (field_data) message = safeJSON(message)
+		else {
+			data = message
+			message = '<no message>'
+		}
 	}
 
-	for (var k in data) entry[k] = data[k]
+	var entry = {
+		'@message': message,
+		'@fields': {level: level},
+		'@tags': [],
+		'@timestamp': new Date().toISOString()
+	}
+
+	if (field_data) {
+		for (var k in field_data) {
+			if (k[0] == '@') entry[k] = field_data[k]
+			else entry['@fields'][k] = field_data[k]
+		}
+	}
 
 	log.emit('entry', entry)
-	if (level === 'error') log.emit('error_', entry)
+	// Don't crash process when errors are logged without listeners
+	if (level === 'error' && log.listeners('error').length == 0) console.error(entry)
   else log.emit(level, entry)
 }
-
-log.emitter = emitter
 
 log.first = function (event, handler) {
 	emitter.listeners(event).unshift(handler)
 }
 
 // Expose all EventEmitter methods directly
-
-emitterMethods = [
+;[
 	'on',
 	'addListener',
 	'once',
 	'removeListener',
-	'removeAllListeners', 
+	'removeAllListeners',
 	'setMaxListeners',
 	'listeners',
 	'emit'
-]
-
-emitterMethods.forEach(function (method) {
-	log[method] = emitter[method].bind(emitter)
+].forEach(function (method) {
+	log[method] = emitter[method].bind(log)
 })
