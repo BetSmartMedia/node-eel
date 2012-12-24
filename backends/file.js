@@ -2,15 +2,16 @@ var fs            = require('fs')
 var reloadable    = require('reloadable')
 var toBytes       = require('to-bytes')
 var streamHandler = require('./stream')
+var log
 
 module.exports = function fileFactory (uri) {
-  var stream;
+  var makeStream;
   if (!(uri.query.reloadSignal || uri.query.rotateSize)) {
-    stream = createWriteStream(uri)
+		makeStream = createWriteStream.bind(null, uri)
   } else {
-    stream = reloadableWriteStream(uri)
+		makeStream = reloadableWriteStream.bind(null, uri)
   }
-  return streamHandler(stream)
+  return streamHandler(makeStream)
 }
 
 function createWriteStream(uri) {
@@ -22,20 +23,10 @@ function createWriteStream(uri) {
 }
 
 function reloadableWriteStream (uri) {
-	var log = require('../')
-
-  function streamError (err) {
-    log.error('WriteStream emitted error', {
-      err: err,
-			uri: uri,
-      stack: err.stack,
-    })
-  }
-
-  var _stream = null
+	log = log || require('../')
 
   var facade = {}
-  facade.__proto__ = createWriteStream(uri).on('error', streamError)
+  facade.__proto__ = createWriteStream(uri)
 
   facade.rotate = function () {
     var stream = facade.__proto__
@@ -44,7 +35,7 @@ function reloadableWriteStream (uri) {
     stream.destroySoon()
     // Still need 1 sync rename :|
     fs.renameSync(uri.pathname, uri.pathname + '.tmp')
-    facade.__proto__ = createWriteStream(uri).on('error', streamError)
+    facade.__proto__ = createWriteStream(uri)
     stream.once('close', function () {
 			if (!maxFiles) log.warn("No maxFiles option in URI", {uri: uri});
       rotateNames(uri.pathname, maxFiles, function (err) {
@@ -71,9 +62,6 @@ function reloadableWriteStream (uri) {
   }
 
   return facade
-}
-
-function addRotateWatcher (stream, uri) {
 }
 
 function rotateNames (base, maxN, done) {

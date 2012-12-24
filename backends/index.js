@@ -21,6 +21,7 @@ function configure (uri, levels) {
 	levels.forEach(function (level) {
 		log.on(level, handler)
 	})
+	return handler
 }
 
 function loadBackend (uri) {
