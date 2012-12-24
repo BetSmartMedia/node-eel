@@ -2,8 +2,13 @@
   "author": "Stephen Sugden <stephen@betsmartmedia.com>",
   "name": "eel",
   "description": "EventEmitter logging. It's simple, extensible, and convenient.",
-  "tags": ["logging", "log", "logstash", "json"],
-  "version": "0.1.0",
+  "tags": [
+    "logging",
+    "log",
+    "logstash",
+    "json"
+  ],
+  "version": "0.1.1",
   "repository": {
     "type": "git",
     "url": "git://github.com/BetSmartMedia/node-eel.git"
