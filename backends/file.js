@@ -6,7 +6,7 @@ var log
 
 module.exports = function fileFactory (uri) {
   var makeStream;
-  if (!(uri.query.reloadSignal || uri.query.rotateSize)) {
+  if (!(uri.query.rotateSignal || uri.query.rotateSize)) {
 		makeStream = createWriteStream.bind(null, uri)
   } else {
 		makeStream = reloadableWriteStream.bind(null, uri)
@@ -28,16 +28,27 @@ function reloadableWriteStream (uri) {
   var facade = {}
   facade.__proto__ = createWriteStream(uri)
 
-  facade.rotate = function () {
+  facade.rotate = function (signal) {
     var stream = facade.__proto__
     var maxFiles = parseInt(uri.query.maxFiles) - 1
+		var doRenames = !!uri.query.maxFiles
     stream.end()
     stream.destroySoon()
-    // Still need 1 sync rename :|
-    fs.renameSync(uri.pathname, uri.pathname + '.tmp')
+		if (doRenames) {
+			// This still needs to be sync :(
+			fs.renameSync(uri.pathname, uri.pathname + '.tmp')
+		}
+
     facade.__proto__ = createWriteStream(uri)
+
+		if (signal && !doRenames) {
+			// Bail out early to let e.g. logrotate handle the renaming of files
+			return
+		}
+		else if (isNaN(uri.query.maxFiles)) {
+			log.warn("maxFiles isNaN, no limit to old logs", {uri: uri})
+		}
     stream.once('close', function () {
-			if (!maxFiles) log.warn("No maxFiles option in URI", {uri: uri});
       rotateNames(uri.pathname, maxFiles, function (err) {
         if (err) return facade.emit('error', err)
       })
@@ -58,7 +69,9 @@ function reloadableWriteStream (uri) {
   }
 
   if (uri.query.rotateSignal) {
-    process.on(uri.query.rotateSignal, facade.rotate)
+		process.on(uri.query.rotateSignal, function () {
+			facade.rotate(uri.query.rotateSignal)
+		})
   }
 
   return facade
