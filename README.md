@@ -22,7 +22,7 @@ The `eel` module exports a function that logs at the "info" level:
 To log at another level, use the `log[level]` functions:
 
     process.on('uncaughtException', function (err) {
-      log.error("uncaughtException", {err: err})
+      log.error("uncaughtException", {err: err, stack: err.stack})
       process.exit(1)
     })
 
@@ -66,7 +66,6 @@ Confused? Hopefully these examples will clarify:
 Be careful, Eel doesn't go out of it's way to prevent you from generating
 garbage log entries!
 
-
 ## Flexible
 
 In addition to the various logging methods, the `eel` object also acts like an
@@ -85,27 +84,86 @@ Now our prepared log entry objects will be printed to the console:
       '@timestamp': '2012-05-31T23:49:01.523Z' }
     */
 
-## Logging backends
 
+## Logging Backends
 
-To configure a backend use `log.backends.configure` with a URI describing the
-backend and it's options. Logging to a file:
+Using `console.log` as a backend might suffice for development, but chances are
+you will want to log to a file or centralized log aggregator (such as
+[Logstash](logstash)) in production. Currently eel ships with 2
+logging backends: files and TCP sockets.
 
-    log.backends.configure('file:///var/log/my_program.log?rotateSize=')
+### Configuring a backend
 
-* [File backend](https://github.com/BetSmartMedia/node-eel/blob/master/backends/file.md)
-* [TCP backend](https://github.com/BetSmartMedia/node-eel/blob/master/backends/tcp.md)
+`require('eel').backends.configure('proto://...', ['warn', 'error', 'critical'])`
 
-you write your own let me know or send me a pull request to add it to the list:
+The first argument should be a string URI describing the logging destination.
+The way the URI is interpreted depends on the protocol used (see below for
+examples), while the `levels` parameter should be an array of log levels this
+backend should handle.
 
-* [eel-stream](http://github.com/BetSmartMedia/node-eel-stream) - Write logs to a
-  stream (file, tcp socket, whatever) using a formatter function.
-* [eel-amqp](http://github.com/BetSmartMedia/node-eel-amqp) - Send logs to an AMQP
-  server.
+When it comes time for your program to exit, you can tell a given logging
+backend to close any resources it holds with `logging.backend.unload(uri)`.
+
+### File Backend
+
+`log.backends.configure('file:///var/log/my_program.log?rotateSize=10mb&maxFiles=10')`
+
+The above will log to the file `/var/log/my_program.log` and rotate the log file
+every time more than 10 megabytes has been written to it. At most 10 old log
+files will be kept, named `my_program.log.[0-9]`.
+
+#### File Backend Options
+
+* rotateSize - Size at which log files will be rotated. Can be suffixed with
+	kb/mb/gb/tb. 
+* rotateSignal - A signal name that cause log files to be rotated.
+* maxFiles - Number of old log files to keep. Beyond this number they will be
+	destroyed. If a file backend is rotated via signal and no maxFiles parameter
+	is given, it will re-open the same log file
+
+### TCP backend
+
+`log.backends.configure('tcp://localhost:1234', levels)`
+
+This backend will write JSON events directly to a socket, separated by new
+lines. It takes no additional options.
+
+### Creating a custom backend
+
+To create your own backend, you simply need to define a factory function that
+will take a parsed URI and return a log event handler function. For example, a
+simplified version of the TCP handler might look like this:
+
+```javascript
+var net = require('net')
+
+module.exports = function (uri) {
+	var socket = net.connect(uri.hostname, uri.port)
+	return function (entry) { socket.write(JSON.stringify(entry) + '\n') }
+}
+```
+
+_(The TCP handler that ships with eel also handles reconnecting on socket errors
+and JSONifying circular structures)_
+
+If your logging handler requires any cleanup for a program to cleanly exit, it's
+good practice to attach an `end` method to the event handler:
+
+```javascript
+var net = require('net')
+
+module.exports = function (uri) {
+	var socket = net.connect(uri.host, uri.port)
+	var handler = function (entry) { socket.write(JSON.stringify(entry) + '\n') }
+	handler.end = socket.end.bind(socket)
+	return handler
+}
+```
 
 ## TODO
 
 Investigate using EventEmitter2 for namespacing and pattern matching log events.
 
 [EventEmitter]: (http://nodejs.org/api/events.html#events_class_events_eventemitter)
+[logstash]: (http://logstash.net)
 [ls_format]: (https://github.com/logstash/logstash/wiki/logstash%27s-internal-message-format)
